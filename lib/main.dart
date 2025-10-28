@@ -1,6 +1,16 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
-void main() {
+import 'package:flutter/material.dart';
+import 'package:executorch_flutter/executorch_flutter.dart';
+import 'package:camera/camera.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
+
+late List<CameraDescription> cameras;
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  cameras = await availableCameras();
   runApp(const MyApp());
 }
 
@@ -54,7 +64,68 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  late ExecuTorchModel model;
   int _counter = 0;
+  CameraController? _cameraController;
+  bool _isCameraInitialized = false;
+  int _currentCameraIndex = 0;
+
+  @override
+  void initState() {
+    loadModel();
+    initializeCamera(_currentCameraIndex);
+    super.initState();
+  }
+
+  Future<void> loadModel() async {
+    final byteData = await rootBundle.load('assets/model.pte');
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/model.pte');
+    await file.writeAsBytes(byteData.buffer.asUint8List());
+
+    // Load and run inference
+    model = await ExecuTorchModel.load(file.path);
+  }
+
+  Future<void> initializeCamera(int cameraIndex) async {
+    if (cameras.isEmpty) {
+      return;
+    }
+
+    // Dispose of previous controller if it exists
+    await _cameraController?.dispose();
+
+    _cameraController = CameraController(
+      cameras[cameraIndex],
+      ResolutionPreset.high,
+    );
+
+    await _cameraController!.initialize();
+    if (mounted) {
+      setState(() {
+        _isCameraInitialized = true;
+      });
+    }
+  }
+
+  Future<void> switchCamera() async {
+    if (cameras.length < 2) {
+      return;
+    }
+
+    setState(() {
+      _isCameraInitialized = false;
+    });
+
+    _currentCameraIndex = (_currentCameraIndex + 1) % cameras.length;
+    await initializeCamera(_currentCameraIndex);
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
 
   void _incrementCounter() {
     setState(() {
@@ -86,24 +157,45 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            if (_isCameraInitialized && _cameraController != null)
+              Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.9,
+                      maxHeight: MediaQuery.of(context).size.height * 0.6,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black, width: 2),
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: _cameraController!.value.aspectRatio,
+                      child: CameraPreview(_cameraController!),
+                    ),
+                  ),
+                  if (cameras.length > 1)
+                    Positioned(
+                      bottom: 16,
+                      child: FloatingActionButton(
+                        mini: true,
+                        onPressed: switchCamera,
+                        tooltip: 'Switch Camera',
+                        child: const Icon(Icons.flip_camera_ios),
+                      ),
+                    ),
+                ],
+              )
+            else
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.9,
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+            const SizedBox(height: 20),
             const Text('You have pushed the button this many times:'),
             Text(
               '$_counter',

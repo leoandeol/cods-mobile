@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'CODS Mobile',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -42,9 +42,9 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightGreen[500]!),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'CODS Mobile'),
     );
   }
 }
@@ -1127,6 +1127,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+        toolbarHeight: 70,
       ),
       body: Center(
         child: Column(
@@ -1138,8 +1139,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 children: [
                   Container(
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.9,
-                      maxHeight: MediaQuery.of(context).size.height * 0.6,
+                      maxWidth: MediaQuery.of(context).size.width, // * 0.9,
+                      maxHeight: MediaQuery.of(
+                        context,
+                      ).size.height, // * 0.88, // * 0.6,
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.black, width: 2),
@@ -1170,36 +1173,38 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   if (cameras.length > 1)
                     Positioned(
-                      bottom: 16,
+                      bottom: 32,
+                      width: 70,
+                      height: 70,
                       child: FloatingActionButton(
-                        mini: true,
+                        mini: false,
                         onPressed: switchCamera,
                         tooltip: 'Switch Camera',
-                        child: const Icon(Icons.flip_camera_ios),
+                        child: const Icon(Icons.flip_camera_ios, size: 50),
                       ),
                     ),
                 ],
               )
             else
               SizedBox(
-                width: MediaQuery.of(context).size.width * 0.9,
-                height: MediaQuery.of(context).size.height * 0.6,
+                width: MediaQuery.of(context).size.width, // * 0.9,
+                height: MediaQuery.of(context).size.height, // * 0.6,
                 child: const Center(child: CircularProgressIndicator()),
               ),
-            const SizedBox(height: 20),
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            //const SizedBox(height: 20),
+            //const Text('You have pushed the button this many times:'),
+            // Text(
+            //   '$_counter',
+            //   style: Theme.of(context).textTheme.headlineMedium,
+            // ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: _incrementCounter,
+      //   tooltip: 'Increment',
+      //   child: const Icon(Icons.add),
+      // ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

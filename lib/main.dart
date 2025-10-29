@@ -98,14 +98,115 @@ class DetectionResult {
   });
 }
 
+const List<String> classNames = [
+  'person',
+  'bicycle',
+  'car',
+  'motorbike',
+  'aeroplane',
+  'bus',
+  'train',
+  'truck',
+  'boat',
+  'trafficlight',
+  'firehydrant',
+  'streetsign',
+  'stopsign',
+  'parkingmeter',
+  'bench',
+  'bird',
+  'cat',
+  'dog',
+  'horse',
+  'sheep',
+  'cow',
+  'elephant',
+  'bear',
+  'zebra',
+  'giraffe',
+  'hat',
+  'backpack',
+  'umbrella',
+  'shoe',
+  'eyeglasses',
+  'handbag',
+  'tie',
+  'suitcase',
+  'frisbee',
+  'skis',
+  'snowboard',
+  'sportsball',
+  'kite',
+  'baseballbat',
+  'baseballglove',
+  'skateboard',
+  'surfboard',
+  'tennisracket',
+  'bottle',
+  'plate',
+  'wineglass',
+  'cup',
+  'fork',
+  'knife',
+  'spoon',
+  'bowl',
+  'banana',
+  'apple',
+  'sandwich',
+  'orange',
+  'broccoli',
+  'carrot',
+  'hotdog',
+  'pizza',
+  'donut',
+  'cake',
+  'chair',
+  'sofa',
+  'pottedplant',
+  'bed',
+  'mirror',
+  'diningtable',
+  'window',
+  'desk',
+  'toilet',
+  'door',
+  'tvmonitor',
+  'laptop',
+  'mouse',
+  'remote',
+  'keyboard',
+  'cellphone',
+  'microwave',
+  'oven',
+  'toaster',
+  'sink',
+  'refrigerator',
+  'blender',
+  'book',
+  'clock',
+  'vase',
+  'scissors',
+  'teddybear',
+  'hairdrier',
+  'toothbrush',
+  'hairbrush',
+];
+
 class DetectionPainter extends CustomPainter {
   final List<DetectionBox> detections;
   final List<DetectionResult>? detectionResults; // Optional for showing labels
+  final Size originalImageSize;
 
-  DetectionPainter(this.detections, {this.detectionResults});
+  DetectionPainter(
+    this.detections, {
+    this.detectionResults,
+    required this.originalImageSize,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (detections.isEmpty) return;
+
     final paint = Paint()
       ..color = Colors.red
       ..style = PaintingStyle.stroke
@@ -113,22 +214,149 @@ class DetectionPainter extends CustomPainter {
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
+    // Debug output
+    print('\n########## DETECTION PAINTER ##########');
+    print('Canvas size: ${size.width} x ${size.height}');
+    print(
+      'Original image size: ${originalImageSize.width} x ${originalImageSize.height}',
+    );
+    print('Number of detections: ${detections.length}');
+
+    // Determine if we need to rotate coordinates
+    // Canvas (preview) is portrait if height > width
+    // Image is landscape if width > height
+    final isCanvasPortrait = size.height > size.width;
+    final isImageLandscape = originalImageSize.width > originalImageSize.height;
+    final needsRotation = isCanvasPortrait && isImageLandscape;
+
+    print(
+      'Canvas portrait: $isCanvasPortrait, Image landscape: $isImageLandscape, Needs rotation: $needsRotation',
+    );
+
     for (int i = 0; i < detections.length; i++) {
       final detection = detections[i];
 
-      final rect = Rect.fromLTWH(
-        detection.x,
-        detection.y,
-        detection.width,
-        detection.height,
-      );
+      if (i < 3) {
+        // Only print detailed logs for first 3
+        print('\n--- Processing detection $i ---');
+        print(
+          'Input box: x=${detection.x}, y=${detection.y}, w=${detection.width}, h=${detection.height}',
+        );
+      }
+
+      double boxX, boxY, boxWidth, boxHeight;
+
+      if (needsRotation) {
+        // Rotate 90 degrees counter-clockwise: (x, y) -> (y, width - x)
+        // The box (x, y, w, h) becomes:
+        boxX = detection.y;
+        boxY = originalImageSize.width - (detection.x + detection.width);
+        boxWidth = detection.height;
+        boxHeight = detection.width;
+
+        if (i < 3)
+          print('After rotation: x=$boxX, y=$boxY, w=$boxWidth, h=$boxHeight');
+
+        // Now scale to fit the canvas (portrait)
+        // After rotation, image dimensions are swapped
+        final rotatedImageWidth = originalImageSize.height;
+        final rotatedImageHeight = originalImageSize.width;
+
+        if (i < 3)
+          print(
+            'Rotated image dimensions: ${rotatedImageWidth} x ${rotatedImageHeight}',
+          );
+
+        final scaleX = size.width / rotatedImageWidth;
+        final scaleY = size.height / rotatedImageHeight;
+        final scale = math.min(scaleX, scaleY);
+
+        if (i < 3)
+          print(
+            'Scale factors: scaleX=$scaleX, scaleY=$scaleY, chosen scale=$scale',
+          );
+
+        boxX *= scale;
+        boxY *= scale;
+        boxWidth *= scale;
+        boxHeight *= scale;
+
+        if (i < 3)
+          print('After scaling: x=$boxX, y=$boxY, w=$boxWidth, h=$boxHeight');
+
+        // Center if needed
+        final scaledWidth = rotatedImageWidth * scale;
+        final scaledHeight = rotatedImageHeight * scale;
+        final offsetX = (size.width - scaledWidth) / 2;
+        final offsetY = (size.height - scaledHeight) / 2;
+
+        if (i < 3)
+          print('Centering offsets: offsetX=$offsetX, offsetY=$offsetY');
+
+        boxX += offsetX;
+        boxY += offsetY;
+
+        if (i < 3)
+          print('After centering: x=$boxX, y=$boxY, w=$boxWidth, h=$boxHeight');
+      } else {
+        // No rotation needed, just scale
+        final scaleX = size.width / originalImageSize.width;
+        final scaleY = size.height / originalImageSize.height;
+        final scale = math.min(scaleX, scaleY);
+
+        if (i < 3)
+          print(
+            'Scale factors: scaleX=$scaleX, scaleY=$scaleY, chosen scale=$scale',
+          );
+
+        boxX = detection.x * scale;
+        boxY = detection.y * scale;
+        boxWidth = detection.width * scale;
+        boxHeight = detection.height * scale;
+
+        if (i < 3)
+          print('After scaling: x=$boxX, y=$boxY, w=$boxWidth, h=$boxHeight');
+
+        // Center if needed
+        final scaledWidth = originalImageSize.width * scale;
+        final scaledHeight = originalImageSize.height * scale;
+        final offsetX = (size.width - scaledWidth) / 2;
+        final offsetY = (size.height - scaledHeight) / 2;
+
+        if (i < 3)
+          print('Centering offsets: offsetX=$offsetX, offsetY=$offsetY');
+
+        boxX += offsetX;
+        boxY += offsetY;
+
+        if (i < 3)
+          print('After centering: x=$boxX, y=$boxY, w=$boxWidth, h=$boxHeight');
+      }
+
+      if (i < 3) {
+        print('FINAL canvas box: x=$boxX, y=$boxY, w=$boxWidth, h=$boxHeight');
+        print(
+          'Canvas bounds check: x in [0, ${size.width}]? ${boxX >= 0 && boxX <= size.width}',
+        );
+        print(
+          'Canvas bounds check: y in [0, ${size.height}]? ${boxY >= 0 && boxY <= size.height}',
+        );
+        print(
+          'Canvas bounds check: x+w in [0, ${size.width}]? ${(boxX + boxWidth) >= 0 && (boxX + boxWidth) <= size.width}',
+        );
+        print(
+          'Canvas bounds check: y+h in [0, ${size.height}]? ${(boxY + boxHeight) >= 0 && (boxY + boxHeight) <= size.height}',
+        );
+      }
+
+      final rect = Rect.fromLTWH(boxX, boxY, boxWidth, boxHeight);
       canvas.drawRect(rect, paint);
 
       // Draw label if available
       if (detectionResults != null && i < detectionResults!.length) {
         final result = detectionResults![i];
         final label =
-            'Class ${result.classId}: ${(result.confidence * 100).toStringAsFixed(1)}%';
+            'Class ${classNames[result.classId - 1]}: ${(result.confidence * 100).toStringAsFixed(1)}%';
 
         textPainter.text = TextSpan(
           text: label,
@@ -140,14 +368,17 @@ class DetectionPainter extends CustomPainter {
         );
 
         textPainter.layout();
-        textPainter.paint(canvas, Offset(detection.x, detection.y - 20));
+        textPainter.paint(canvas, Offset(boxX, boxY - 20));
       }
     }
+
+    print('########## END DETECTION PAINTER ##########\n');
   }
 
   @override
   bool shouldRepaint(DetectionPainter oldDelegate) {
-    return oldDelegate.detections != detections;
+    return oldDelegate.detections != detections ||
+        oldDelegate.originalImageSize != originalImageSize;
   }
 }
 
@@ -160,6 +391,8 @@ class _MyHomePageState extends State<MyHomePage> {
   Timer? _detectionTimer;
   List<DetectionBox> _detections = [];
   List<DetectionResult> _detectionResults = []; // Add this
+  Size _originalImageSize = const Size(1, 1); // Store original image size
+  bool _isProcessing = false; // Flag to prevent concurrent processing
 
   @override
   void initState() {
@@ -171,11 +404,23 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> loadModel() async {
     final byteData = await rootBundle.load('assets/model.pte');
     final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/model.pte');
+
+    // Use versioned filename to force reload (increment when model changes)
+    final file = File('${tempDir.path}/model_v2.pte');
+
+    // Always overwrite to ensure fresh model
+    if (await file.exists()) {
+      await file.delete();
+    }
     await file.writeAsBytes(byteData.buffer.asUint8List());
+
+    print('[MODEL] Loading model from: ${file.path}');
+    print('[MODEL] Model file size: ${await file.length()} bytes');
 
     // Load and run inference
     model = await ExecuTorchModel.load(file.path);
+
+    print('[MODEL] Model loaded successfully!');
   }
 
   Future<void> initializeCamera(int cameraIndex) async {
@@ -190,6 +435,8 @@ class _MyHomePageState extends State<MyHomePage> {
     _cameraController = CameraController(
       cameras[cameraIndex],
       ResolutionPreset.high,
+      enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.yuv420,
     );
 
     await _cameraController!.initialize();
@@ -198,12 +445,32 @@ class _MyHomePageState extends State<MyHomePage> {
         _isCameraInitialized = true;
       });
 
-      // Start the detection timer
-      _detectionTimer = Timer.periodic(const Duration(milliseconds: 500), (
-        timer,
-      ) {
-        _runDetection();
+      // Start image streaming for detection instead of timer
+      _cameraController!.startImageStream((CameraImage image) {
+        // Only process if not already processing
+        if (!_isProcessing) {
+          _runDetectionOnStream(image);
+        }
       });
+    }
+  }
+
+  Future<void> _runDetectionOnStream(CameraImage image) async {
+    if (_isProcessing) return;
+
+    _isProcessing = true;
+
+    try {
+      List<DetectionBox> detections = await _processFrameFromStream(image);
+
+      if (mounted) {
+        setState(() {
+          _detections = detections;
+          // _detectionResults is set in _processFrameFromStream
+        });
+      }
+    } finally {
+      _isProcessing = false;
     }
   }
 
@@ -227,43 +494,64 @@ class _MyHomePageState extends State<MyHomePage> {
     img.Image? image = img.decodeImage(imageBytes);
     if (image == null) throw Exception('Failed to decode image');
 
-    // Resize to 224x224
-    img.Image resized = img.copyResize(image, width: 224, height: 224);
+    print('[PREPROCESSING] Original image: ${image.width}x${image.height}');
+
+    // Resize to 640x640
+    img.Image resized = img.copyResize(image, width: 640, height: 640);
+
+    print('[PREPROCESSING] Resized to: ${resized.width}x${resized.height}');
 
     // Convert to RGB if needed
     if (resized.numChannels == 4) {
-      resized = img.copyResize(resized, width: 224, height: 224);
+      resized = img.copyResize(resized, width: 640, height: 640);
     }
 
-    // Prepare float buffer: 1 * 3 * 224 * 224 = 150528
-    final float32list = Float32List(1 * 3 * 224 * 224);
+    // ImageNet normalization values (DETR requires this!)
+    const meanR = 0.485;
+    const meanG = 0.456;
+    const meanB = 0.406;
+    const stdR = 0.229;
+    const stdG = 0.224;
+    const stdB = 0.225;
+
+    // Prepare float buffer: 1 * 3 * 640 * 640 = 150528
+    final float32list = Float32List(1 * 3 * 640 * 640);
 
     int pixelIndex = 0;
 
-    // Convert to CHW format (Channel, Height, Width)
+    // Convert to CHW format (Channel, Height, Width) with ImageNet normalization
     // Fill Red channel
-    for (int y = 0; y < 224; y++) {
-      for (int x = 0; x < 224; x++) {
+    for (int y = 0; y < 640; y++) {
+      for (int x = 0; x < 640; x++) {
         final pixel = resized.getPixel(x, y);
-        float32list[pixelIndex++] = pixel.r / 255.0; // Normalize to 0-1
+        float32list[pixelIndex++] = (pixel.r / 255.0 - meanR) / stdR;
       }
     }
 
     // Fill Green channel
-    for (int y = 0; y < 224; y++) {
-      for (int x = 0; x < 224; x++) {
+    for (int y = 0; y < 640; y++) {
+      for (int x = 0; x < 640; x++) {
         final pixel = resized.getPixel(x, y);
-        float32list[pixelIndex++] = pixel.g / 255.0;
+        float32list[pixelIndex++] = (pixel.g / 255.0 - meanG) / stdG;
       }
     }
 
     // Fill Blue channel
-    for (int y = 0; y < 224; y++) {
-      for (int x = 0; x < 224; x++) {
+    for (int y = 0; y < 640; y++) {
+      for (int x = 0; x < 640; x++) {
         final pixel = resized.getPixel(x, y);
-        float32list[pixelIndex++] = pixel.b / 255.0;
+        float32list[pixelIndex++] = (pixel.b / 255.0 - meanB) / stdB;
       }
     }
+
+    // Print sample values from the tensor
+    print('[PREPROCESSING] Sample tensor values (first 10):');
+    for (int i = 0; i < math.min(10, float32list.length); i++) {
+      print('  [$i] = ${float32list[i]}');
+    }
+    print(
+      '[PREPROCESSING] Tensor min/max: ${float32list.reduce(math.min)} / ${float32list.reduce(math.max)}',
+    );
 
     return float32list;
   }
@@ -360,18 +648,40 @@ class _MyHomePageState extends State<MyHomePage> {
     double imgWidth,
     double imgHeight,
   ) {
-    // Convert to Float32List
-    final logitsData = outLogits.data.buffer.asFloat32List();
-    final boxesData = outBboxes.data.buffer.asFloat32List();
+    print('==================================================');
+    print('POSTPROCESS START');
+    print(
+      'Input tensor data lengths: logits=${outLogits.data.length} bytes, boxes=${outBboxes.data.length} bytes',
+    );
 
-    // Check for NaN in raw data
-    bool hasNaN = false;
-    for (int i = 0; i < math.min(10, boxesData.length); i++) {
-      if (boxesData[i].isNaN) {
-        print('Warning: NaN found in raw box data at index $i');
-        hasNaN = true;
-      }
+    // Check raw bytes first
+    print(
+      'First 16 bytes of box data (as Uint8): ${outBboxes.data.sublist(0, math.min(16, outBboxes.data.length))}',
+    );
+
+    // Convert to Float32List
+    //final logitsData = outLogits.data.buffer.asFloat32List();
+    //final boxesData = outBboxes.data.buffer.asFloat32List();
+    final bytelogitsData = ByteData.sublistView(outLogits.data);
+    final floatCountLogits = outLogits.data.length ~/ 4;
+    final logitsData = Float32List(floatCountLogits);
+    for (int i = 0; i < floatCountLogits; i++) {
+      logitsData[i] = bytelogitsData.getFloat32(i * 4, Endian.host);
     }
+
+    final byteboxesData = ByteData.sublistView(outBboxes.data);
+    final floatCountBoxes = outBboxes.data.length ~/ 4;
+    final boxesData = Float32List(floatCountBoxes);
+    for (int i = 0; i < floatCountBoxes; i++) {
+      boxesData[i] = byteboxesData.getFloat32(i * 4, Endian.host);
+    }
+
+    print(
+      'Float32List lengths: logits=${logitsData.length} floats, boxes=${boxesData.length} floats',
+    );
+    print(
+      'First 10 box float values: ${boxesData.sublist(0, math.min(10, boxesData.length))}',
+    );
 
     final logitsShape = outLogits.shape.map((e) => e ?? 1).toList();
     final boxesShape = outBboxes.shape.map((e) => e ?? 1).toList();
@@ -381,9 +691,23 @@ class _MyHomePageState extends State<MyHomePage> {
 
     print('Processing $numBoxes boxes with $numClasses classes');
     print('Image dimensions: $imgWidth x $imgHeight');
+    print('==================================================');
+
+    // Print first raw box from model
+    print(
+      'Raw box 0 (cx,cy,w,h): [${boxesData[0]}, ${boxesData[1]}, ${boxesData[2]}, ${boxesData[3]}]',
+    );
 
     // 1. Convert boxes from [cx, cy, w, h] to [x1, y1, x2, y2]
     final xyxyBoxes = boxCxcywhToXyxy(boxesData, boxesShape);
+
+    print('After cxcywh->xyxy conversion (normalized 0-1):');
+    print(
+      '  Box 0: [${xyxyBoxes[0]}, ${xyxyBoxes[1]}, ${xyxyBoxes[2]}, ${xyxyBoxes[3]}]',
+    );
+    print(
+      '  Width: ${xyxyBoxes[2] - xyxyBoxes[0]}, Height: ${xyxyBoxes[3] - xyxyBoxes[1]}',
+    );
 
     // 2. Scale boxes from relative [0, 1] to absolute coordinates
     final scaledBoxes = Float32List(xyxyBoxes.length);
@@ -395,9 +719,12 @@ class _MyHomePageState extends State<MyHomePage> {
       scaledBoxes[offset + 3] = xyxyBoxes[offset + 3] * imgHeight; // y2
     }
 
-    // Debug: print first few scaled boxes
+    print('After scaling to image dimensions:');
     print(
-      'First scaled box: [${scaledBoxes[0]}, ${scaledBoxes[1]}, ${scaledBoxes[2]}, ${scaledBoxes[3]}]',
+      '  Box 0: [${scaledBoxes[0]}, ${scaledBoxes[1]}, ${scaledBoxes[2]}, ${scaledBoxes[3]}]',
+    );
+    print(
+      '  Width: ${scaledBoxes[2] - scaledBoxes[0]}, Height: ${scaledBoxes[3] - scaledBoxes[1]}',
     );
 
     // 3. Apply softmax to logits
@@ -438,6 +765,9 @@ class _MyHomePageState extends State<MyHomePage> {
     final detections = <DetectionResult>[];
     const confidenceThreshold = 0.5;
 
+    print('Filtering detections with confidence > $confidenceThreshold');
+    int validCount = 0;
+
     for (int i = 0; i < numBoxes; i++) {
       if (confidences[i] > confidenceThreshold) {
         final offset = i * 4;
@@ -460,6 +790,14 @@ class _MyHomePageState extends State<MyHomePage> {
           continue;
         }
 
+        validCount++;
+        if (validCount <= 3) {
+          // Only print first 3 to avoid spam
+          print(
+            'Detection $validCount: conf=${confidences[i].toStringAsFixed(3)}, box=[$x1, $y1, $x2, $y2], w=${x2 - x1}, h=${y2 - y1}',
+          );
+        }
+
         detections.add(
           DetectionResult(
             x1: x1,
@@ -475,6 +813,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     print('Filtered to ${detections.length} valid detections above threshold');
+    print('==================================================');
 
     return detections;
   }
@@ -497,16 +836,37 @@ class _MyHomePageState extends State<MyHomePage> {
 
       print('Original image size: $originalWidth x $originalHeight');
 
+      // Store the actual camera image size (not rotated)
+      _originalImageSize = Size(originalWidth, originalHeight);
+
+      print('Preview size: ${_cameraController!.value.previewSize}');
+      print('Aspect ratio: ${_cameraController!.value.aspectRatio}');
+
       final Float32List processedImage = prepareImageForModel(imageBytes);
       final Uint8List tensorBytes = processedImage.buffer.asUint8List();
       final inputTensor = TensorData(
-        shape: [1, 3, 224, 224],
+        shape: [1, 3, 640, 640],
         dataType: TensorType.float32,
         data: tensorBytes,
       );
 
       // Run inference
+      print(
+        '[INFERENCE] Calling model.forward() with input shape: ${inputTensor.shape}',
+      );
+      print('[INFERENCE] Input data length: ${inputTensor.data.length} bytes');
+
       final outputs = await model.forward([inputTensor]);
+
+      print('[INFERENCE] Got ${outputs.length} outputs');
+      if (outputs.length >= 2) {
+        print(
+          '[INFERENCE] Output 0 shape: ${outputs[0].shape}, data length: ${outputs[0].data.length}',
+        );
+        print(
+          '[INFERENCE] Output 1 shape: ${outputs[1].shape}, data length: ${outputs[1].data.length}',
+        );
+      }
 
       if (outputs.length < 2) return [];
 
@@ -516,7 +876,7 @@ class _MyHomePageState extends State<MyHomePage> {
       print('Classification shape: ${outputClassif.shape}');
       print('Boxes shape: ${outputBoxes.shape}');
 
-      // Post-process
+      // Post-process using the ACTUAL captured image dimensions
       final detections = postprocess(
         outputClassif,
         outputBoxes,
@@ -527,21 +887,7 @@ class _MyHomePageState extends State<MyHomePage> {
       // Store detection results for labels
       _detectionResults = detections;
 
-      // Get camera preview size
-      final previewSize = _cameraController!.value.previewSize;
-      if (previewSize == null) {
-        print('Preview size is null');
-        return [];
-      }
-
-      print('Preview size: ${previewSize.width} x ${previewSize.height}');
-
-      final scaleX = previewSize.width / originalWidth;
-      final scaleY = previewSize.height / originalHeight;
-
-      print('Scale factors: scaleX=$scaleX, scaleY=$scaleY');
-
-      // Convert to DetectionBox format for display with validation
+      // Convert to DetectionBox format - use coordinates as-is from detection
       final detectionBoxes = <DetectionBox>[];
 
       for (var det in detections) {
@@ -561,34 +907,18 @@ class _MyHomePageState extends State<MyHomePage> {
           continue;
         }
 
-        final x = det.x1 * scaleX;
-        final y = det.y1 * scaleY;
-        final width = (det.x2 - det.x1) * scaleX;
-        final height = (det.y2 - det.y1) * scaleY;
-
-        // Validate scaled coordinates
-        if (x.isNaN || y.isNaN || width.isNaN || height.isNaN) {
-          print('Warning: NaN after scaling: x=$x, y=$y, w=$width, h=$height');
-          continue;
-        }
-
-        // Clamp to valid ranges (optional but recommended)
-        final clampedX = x.clamp(0, previewSize.width).toDouble();
-        final clampedY = y.clamp(0, previewSize.height).toDouble();
-        final clampedWidth = width
-            .clamp(0, previewSize.width - clampedX)
-            .toDouble();
-        final clampedHeight = height
-            .clamp(0, previewSize.height - clampedY)
-            .toDouble();
-
+        // Use coordinates directly from detection (in camera image space)
         detectionBoxes.add(
           DetectionBox(
-            x: clampedX,
-            y: clampedY,
-            width: clampedWidth,
-            height: clampedHeight,
+            x: det.x1,
+            y: det.y1,
+            width: det.x2 - det.x1,
+            height: det.y2 - det.y1,
           ),
+        );
+
+        print(
+          'Added box: x=${det.x1}, y=${det.y1}, w=${det.x2 - det.x1}, h=${det.y2 - det.y1}',
         );
       }
 
@@ -600,10 +930,157 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  // Convert YUV420 CameraImage to Uint8List (JPEG bytes)
+  Uint8List _convertYUV420ToImage(CameraImage image) {
+    final int width = image.width;
+    final int height = image.height;
+
+    // Create an Image object from YUV420
+    final img.Image imgLib = img.Image(width: width, height: height);
+
+    final int uvRowStride = image.planes[1].bytesPerRow;
+    final int uvPixelStride = image.planes[1].bytesPerPixel!;
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final int uvIndex =
+            uvPixelStride * (x / 2).floor() + uvRowStride * (y / 2).floor();
+        final int index = y * width + x;
+
+        final yp = image.planes[0].bytes[index];
+        final up = image.planes[1].bytes[uvIndex];
+        final vp = image.planes[2].bytes[uvIndex];
+
+        // Convert YUV to RGB
+        int r = (yp + vp * 1436 / 1024 - 179).round().clamp(0, 255);
+        int g = (yp - up * 46549 / 131072 + 44 - vp * 93604 / 131072 + 91)
+            .round()
+            .clamp(0, 255);
+        int b = (yp + up * 1814 / 1024 - 227).round().clamp(0, 255);
+
+        imgLib.setPixelRgba(x, y, r, g, b, 255);
+      }
+    }
+
+    // Encode to JPEG
+    return Uint8List.fromList(img.encodeJpg(imgLib));
+  }
+
+  Future<List<DetectionBox>> _processFrameFromStream(CameraImage image) async {
+    try {
+      // Convert CameraImage to bytes
+      final Uint8List imageBytes = _convertYUV420ToImage(image);
+
+      final originalWidth = image.width.toDouble();
+      final originalHeight = image.height.toDouble();
+
+      print('\n========== PROCESSING FRAME FROM STREAM ==========');
+      print('Stream image size: $originalWidth x $originalHeight');
+
+      // Store the actual camera image size (not rotated)
+      _originalImageSize = Size(originalWidth, originalHeight);
+      print(
+        'Stored _originalImageSize: ${_originalImageSize.width} x ${_originalImageSize.height}',
+      );
+
+      final Float32List processedImage = prepareImageForModel(imageBytes);
+      final Uint8List tensorBytes = processedImage.buffer.asUint8List();
+      final inputTensor = TensorData(
+        shape: [1, 3, 640, 640],
+        dataType: TensorType.float32,
+        data: tensorBytes,
+      );
+
+      // Run inference
+      print(
+        '[INFERENCE] Calling model.forward() with input shape: ${inputTensor.shape}',
+      );
+      print('[INFERENCE] Input data length: ${inputTensor.data.length} bytes');
+
+      final outputs = await model.forward([inputTensor]);
+
+      print('[INFERENCE] Got ${outputs.length} outputs');
+      if (outputs.length >= 2) {
+        print(
+          '[INFERENCE] Output 0 shape: ${outputs[0].shape}, data length: ${outputs[0].data.length}',
+        );
+        print(
+          '[INFERENCE] Output 1 shape: ${outputs[1].shape}, data length: ${outputs[1].data.length}',
+        );
+      }
+
+      if (outputs.length < 2) return [];
+
+      final outputClassif = outputs[0];
+      final outputBoxes = outputs[1];
+
+      // Post-process using the ACTUAL captured image dimensions
+      final detections = postprocess(
+        outputClassif,
+        outputBoxes,
+        originalWidth,
+        originalHeight,
+      );
+
+      // Store detection results for labels
+      _detectionResults = detections;
+
+      // Convert to DetectionBox format - use coordinates directly
+      final detectionBoxes = <DetectionBox>[];
+
+      print(
+        '\nConverting ${detections.length} DetectionResults to DetectionBoxes:',
+      );
+      int boxNum = 0;
+      for (var det in detections) {
+        // Validate coordinates
+        if (det.x1.isNaN || det.y1.isNaN || det.x2.isNaN || det.y2.isNaN) {
+          continue;
+        }
+
+        if (det.x1.isInfinite ||
+            det.y1.isInfinite ||
+            det.x2.isInfinite ||
+            det.y2.isInfinite) {
+          continue;
+        }
+
+        // Use coordinates directly from detection (in camera image space)
+        final box = DetectionBox(
+          x: det.x1,
+          y: det.y1,
+          width: det.x2 - det.x1,
+          height: det.y2 - det.y1,
+        );
+
+        if (boxNum < 3) {
+          // Only log first 3
+          print(
+            '  Box $boxNum: x=${box.x}, y=${box.y}, w=${box.width}, h=${box.height}',
+          );
+        }
+        boxNum++;
+
+        detectionBoxes.add(box);
+      }
+
+      print('Created ${detectionBoxes.length} DetectionBoxes');
+      print('==================================================\n');
+
+      return detectionBoxes;
+    } catch (e) {
+      print('Error processing stream frame: $e');
+      return [];
+    }
+  }
+
   Future<void> switchCamera() async {
     if (cameras.length < 2) {
       return;
     }
+
+    // Stop image stream before switching
+    await _cameraController?.stopImageStream();
 
     setState(() {
       _isCameraInitialized = false;
@@ -616,6 +1093,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     _detectionTimer?.cancel();
+    _cameraController?.stopImageStream().catchError((_) {});
     _cameraController?.dispose();
     model.dispose();
     super.dispose();
@@ -668,17 +1146,25 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     child: AspectRatio(
                       aspectRatio: _cameraController!.value.aspectRatio,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          CameraPreview(_cameraController!),
-                          CustomPaint(
-                            painter: DetectionPainter(
-                              _detections,
-                              detectionResults: _detectionResults,
-                            ),
-                          ),
-                        ],
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Transform.scale(
+                                scaleX: -1,
+                                child: CameraPreview(_cameraController!),
+                              ),
+                              CustomPaint(
+                                painter: DetectionPainter(
+                                  _detections,
+                                  detectionResults: _detectionResults,
+                                  originalImageSize: _originalImageSize,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),

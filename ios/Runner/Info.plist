@@ -45,7 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to display camera feed</string>
+	<!-- Additional Metal Performance Shaders for iOS - Faster inference -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>metal</string>
+	</array>
 </dict>
 </plist>
